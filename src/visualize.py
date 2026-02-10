@@ -12,9 +12,7 @@ import pandas as pd
 try:
     import joblib  # type: ignore
 except Exception as e:  # pragma: no cover
-    raise ImportError(
-        "Missing dependency: joblib. Install it with `pip install joblib`."
-    ) from e
+    raise ImportError("Missing dependency: joblib. Install it with `pip install joblib`.") from e
 
 
 def _default_processed_path() -> str:
@@ -76,8 +74,80 @@ def _read_json(path: Path) -> Dict[str, Any]:
 
 
 def _safe_float_series(s: pd.Series) -> pd.Series:
-    # Coerce to numeric safely
     return pd.to_numeric(s, errors="coerce")
+
+
+def _add_metric_box(lines: list[str]) -> None:
+    plt.gca().text(
+        0.02,
+        0.98,
+        "\n".join(lines),
+        transform=plt.gca().transAxes,
+        va="top",
+        bbox=dict(boxstyle="round", facecolor="white", alpha=0.85),
+    )
+
+
+def _plot_residuals_with_smooth(
+    x: np.ndarray,
+    residuals: np.ndarray,
+    xlabel: str,
+    ylabel: str,
+    title: str,
+    out_file: Path,
+) -> None:
+    # Sort by x for a clean smooth line
+    order = np.argsort(x)
+    xs = x[order]
+    rs = residuals[order]
+
+    plt.figure()
+    plt.scatter(xs, rs)
+    plt.axhline(0)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+
+    # Rolling mean to reveal structure
+    window = max(10, len(rs) // 30)
+    smooth = (
+        pd.Series(rs)
+        .rolling(window=window, center=True, min_periods=1)
+        .mean()
+        .to_numpy()
+    )
+    plt.plot(xs, smooth)
+
+    plt.savefig(out_file, dpi=200, bbox_inches="tight")
+    plt.close()
+
+
+def _plot_pred_vs_actual(
+    y_true: np.ndarray,
+    y_hat: np.ndarray,
+    xlabel: str,
+    ylabel: str,
+    title: str,
+    out_file: Path,
+    lines: list[str],
+) -> None:
+    plt.figure()
+    plt.scatter(y_true, y_hat)
+
+    # Ideal line y = x
+    mn = float(np.min([y_true.min(), y_hat.min()]))
+    mx = float(np.max([y_true.max(), y_hat.max()]))
+    plt.plot([mn, mx], [mn, mx])
+    plt.xlim(mn, mx)
+    plt.ylim(mn, mx)
+
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    _add_metric_box(lines)
+
+    plt.savefig(out_file, dpi=200, bbox_inches="tight")
+    plt.close()
 
 
 def visualize(
@@ -86,10 +156,8 @@ def visualize(
     runs_dir: str,
     run_id: Optional[str] = None,
 ) -> dict:
-    # Load dataset
     df = pd.read_csv(in_csv)
 
-    # Resolve which trained model run to use
     runs_path = Path(runs_dir)
     run_dir = _resolve_run_dir(runs_path, run_id)
 
@@ -113,20 +181,18 @@ def visualize(
     if missing:
         raise ValueError(f"Missing columns in dataset: {missing}. Got: {set(df.columns)}")
 
-    # Clean / coerce to numeric
+    # Coerce to numeric
     for col in features + [target]:
         df[col] = _safe_float_series(df[col])
 
     df = df.dropna(subset=features + [target]).copy()
 
-    # Output dir
     out_path = Path(out_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
     # -------------------------
-    # 1) Basic plots (keep yours)
+    # 1) Basic plots
     # -------------------------
-    # If your project always has these columns, keep the original visuals too:
     if "city_population" in df.columns and "annual_visitors" in df.columns:
         plt.figure()
         plt.scatter(df["city_population"], df["annual_visitors"])
@@ -154,31 +220,29 @@ def visualize(
     # -------------------------
     model = joblib.load(model_path)
 
+    # Optional safety check if model exposes expected feature names
+    if hasattr(model, "feature_names_in_"):
+        trained = list(getattr(model, "feature_names_in_"))
+        if trained != features:
+            raise ValueError(f"Model expects {trained} but metrics.json has {features}")
+
     X = df[features].to_numpy(dtype=float)
     y = df[target].to_numpy(dtype=float)
 
-    # Predict on the full dataset (for visualization)
     try:
         y_pred = model.predict(X)
     except Exception as e:
         raise RuntimeError(
-            f"Model prediction failed. Ensure your dataset features match the training features.\n"
+            "Model prediction failed. Ensure your dataset features match the training features.\n"
             f"features={features}, target={target}, model={model_path}"
         ) from e
 
-    # a) Predicted vs Actual
-    plt.figure()
-    plt.scatter(y, y_pred)
-    plt.xlabel(f"Actual: {target}")
-    plt.ylabel(f"Predicted: {target}")
-    plt.title("Predicted vs Actual")
-
-    # Annotate with test metrics from metrics.json (most honest)
+    # Metrics box (from test metrics)
     r2 = metrics.get("r2")
     mae = metrics.get("mae")
     rmse = metrics.get("rmse")
 
-    lines = []
+    lines: list[str] = []
     if r2 is not None:
         lines.append(f"R² (test) = {float(r2):.3f}")
     if mae is not None:
@@ -187,30 +251,64 @@ def visualize(
         lines.append(f"RMSE (test) = {float(rmse):,.0f}")
     lines.append(f"run = {run_dir.name}")
 
-    plt.gca().text(
-        0.02,
-        0.98,
-        "\n".join(lines),
-        transform=plt.gca().transAxes,
-        va="top",
-        bbox=dict(boxstyle="round", facecolor="white", alpha=0.85),
+    # a) Predicted vs Actual (original scale) + ideal line
+    pred_vs_actual_path = out_path / "predicted_vs_actual.png"
+    _plot_pred_vs_actual(
+        y_true=y,
+        y_hat=y_pred,
+        xlabel=f"Actual: {target}",
+        ylabel=f"Predicted: {target}",
+        title="Predicted vs Actual",
+        out_file=pred_vs_actual_path,
+        lines=lines,
     )
 
-    pred_vs_actual_path = out_path / "predicted_vs_actual.png"
-    plt.savefig(pred_vs_actual_path, dpi=200, bbox_inches="tight")
-    plt.close()
-
-    # b) Residual plot
+    # b) Residuals vs Predicted (original scale) + smooth line
     residuals = y - y_pred
-    plt.figure()
-    plt.scatter(y_pred, residuals)
-    plt.axhline(0)
-    plt.xlabel("Predicted")
-    plt.ylabel("Residual (y - ŷ)")
-    plt.title("Residuals vs Predicted")
     residuals_path = out_path / "residuals.png"
-    plt.savefig(residuals_path, dpi=200, bbox_inches="tight")
-    plt.close()
+    _plot_residuals_with_smooth(
+        x=y_pred,
+        residuals=residuals,
+        xlabel="Predicted",
+        ylabel="Residual (y - ŷ)",
+        title="Residuals vs Predicted",
+        out_file=residuals_path,
+    )
+
+    # -------------------------
+    # 3) Log-scale diagnostics (if target positive-ish)
+    # -------------------------
+    eps = 1e-9
+    log_ok = bool(np.all(np.isfinite(y))) and bool(np.all(y + eps > 0)) and bool(np.all(y_pred + eps > 0))
+
+    pred_vs_actual_log_path = None
+    residuals_log_path = None
+
+    if log_ok:
+        y_log = np.log(y + eps)
+        y_pred_log = np.log(y_pred + eps)
+
+        pred_vs_actual_log_path = out_path / "predicted_vs_actual_log.png"
+        _plot_pred_vs_actual(
+            y_true=y_log,
+            y_hat=y_pred_log,
+            xlabel=f"Actual: log({target})",
+            ylabel=f"Predicted: log({target})",
+            title="Predicted vs Actual (log scale)",
+            out_file=pred_vs_actual_log_path,
+            lines=lines,
+        )
+
+        residuals_log = y_log - y_pred_log
+        residuals_log_path = out_path / "residuals_log.png"
+        _plot_residuals_with_smooth(
+            x=y_pred_log,
+            residuals=residuals_log,
+            xlabel=f"Predicted log({target})",
+            ylabel="Residual (log(y) - log(ŷ))",
+            title="Residuals vs Predicted (log scale)",
+            out_file=residuals_log_path,
+        )
 
     # c) Regression line on scatter (only if 1 feature)
     regline_path = None
@@ -218,7 +316,6 @@ def visualize(
         x_name = features[0]
         x = df[x_name].to_numpy(dtype=float)
 
-        # Sort by x for a clean line
         order = np.argsort(x)
         x_sorted = x[order]
         y_sorted = y[order]
@@ -227,30 +324,20 @@ def visualize(
         plt.figure()
         plt.scatter(x_sorted, y_sorted)
         plt.plot(x_sorted, y_pred_sorted)
-
         plt.xlabel(x_name)
         plt.ylabel(target)
         plt.title(f"{target} vs {x_name} (model line)")
-
-        plt.gca().text(
-            0.02,
-            0.98,
-            "\n".join(lines),
-            transform=plt.gca().transAxes,
-            va="top",
-            bbox=dict(boxstyle="round", facecolor="white", alpha=0.85),
-        )
+        _add_metric_box(lines)
 
         regline_path = out_path / "scatter_with_model_line.png"
         plt.savefig(regline_path, dpi=200, bbox_inches="tight")
         plt.close()
 
-    # d) Optional: if predictions_test.csv exists, plot test residuals too
+    # d) Optional: predictions_test.csv residuals (fix alignment by dropping NA jointly)
     test_plot_path = None
     if preds_test_path.exists():
         preds_df = pd.read_csv(preds_test_path)
 
-        # Try common column names
         y_true_col = None
         y_hat_col = None
         for cand in ["y_true", "actual", "target", "annual_visitors"]:
@@ -263,24 +350,46 @@ def visualize(
                 break
 
         if y_true_col and y_hat_col:
-            y_true_t = _safe_float_series(preds_df[y_true_col]).dropna().to_numpy(dtype=float)
-            y_hat_t = _safe_float_series(preds_df[y_hat_col]).dropna().to_numpy(dtype=float)
+            tmp = pd.DataFrame(
+                {
+                    "y_true": _safe_float_series(preds_df[y_true_col]),
+                    "y_hat": _safe_float_series(preds_df[y_hat_col]),
+                }
+            ).dropna()
 
-            n = min(len(y_true_t), len(y_hat_t))
-            if n > 0:
-                y_true_t = y_true_t[:n]
-                y_hat_t = y_hat_t[:n]
+            if len(tmp) > 0:
+                y_true_t = tmp["y_true"].to_numpy(dtype=float)
+                y_hat_t = tmp["y_hat"].to_numpy(dtype=float)
                 res_t = y_true_t - y_hat_t
 
-                plt.figure()
-                plt.scatter(y_hat_t, res_t)
-                plt.axhline(0)
-                plt.xlabel("Predicted (test)")
-                plt.ylabel("Residual (test)")
-                plt.title("Test residuals (from predictions_test.csv)")
                 test_plot_path = out_path / "residuals_test.png"
-                plt.savefig(test_plot_path, dpi=200, bbox_inches="tight")
+                _plot_residuals_with_smooth(
+                    x=y_hat_t,
+                    residuals=res_t,
+                    xlabel="Predicted (test)",
+                    ylabel="Residual (test)",
+                    title="Test residuals (from predictions_test.csv)",
+                    out_file=test_plot_path,
+                )
+
+    # e) Optional: coefficients plot if linear model
+    coef_path = None
+    if hasattr(model, "coef_"):
+        try:
+            coefs = np.array(getattr(model, "coef_"), dtype=float).reshape(-1)
+            if len(coefs) == len(features):
+                order = np.argsort(np.abs(coefs))[::-1]
+                plt.figure()
+                plt.bar(np.array(features)[order], coefs[order])
+                plt.xticks(rotation=45, ha="right")
+                plt.xlabel("Feature")
+                plt.ylabel("Coefficient")
+                plt.title("Linear model coefficients")
+                coef_path = out_path / "coefficients.png"
+                plt.savefig(coef_path, dpi=200, bbox_inches="tight")
                 plt.close()
+        except Exception:
+            coef_path = None
 
     return {
         "rows_used": int(len(df)),
@@ -291,8 +400,11 @@ def visualize(
         "hist_path": str(hist_path) if hist_path else None,
         "pred_vs_actual_path": str(pred_vs_actual_path),
         "residuals_path": str(residuals_path),
+        "pred_vs_actual_log_path": str(pred_vs_actual_log_path) if pred_vs_actual_log_path else None,
+        "residuals_log_path": str(residuals_log_path) if residuals_log_path else None,
         "regline_path": str(regline_path) if regline_path else None,
         "residuals_test_path": str(test_plot_path) if test_plot_path else None,
+        "coefficients_path": str(coef_path) if coef_path else None,
         "features": features,
         "target": target,
         "metrics_test": metrics,
@@ -304,7 +416,6 @@ def main() -> None:
     parser.add_argument("--in", dest="in_csv", default=_default_processed_path(), help="Input processed CSV path")
     parser.add_argument("--out", dest="out_dir", default=_default_figures_dir(), help="Output directory for figures")
 
-    # New: choose which training run to use
     parser.add_argument(
         "--runs-dir",
         dest="runs_dir",
@@ -330,16 +441,26 @@ def main() -> None:
     print("Figures generated")
     print(f"- rows: {result['rows_used']}")
     print(f"- run: {result['run_dir']}")
+
     if result["scatter_path"]:
         print(f"- scatter: {result['scatter_path']}")
     if result["hist_path"]:
         print(f"- hist: {result['hist_path']}")
+
     print(f"- predicted vs actual: {result['pred_vs_actual_path']}")
     print(f"- residuals: {result['residuals_path']}")
+
+    if result["pred_vs_actual_log_path"]:
+        print(f"- predicted vs actual (log): {result['pred_vs_actual_log_path']}")
+    if result["residuals_log_path"]:
+        print(f"- residuals (log): {result['residuals_log_path']}")
+
     if result["regline_path"]:
         print(f"- scatter + model line: {result['regline_path']}")
     if result["residuals_test_path"]:
         print(f"- residuals (test file): {result['residuals_test_path']}")
+    if result["coefficients_path"]:
+        print(f"- coefficients: {result['coefficients_path']}")
 
 
 if __name__ == "__main__":
