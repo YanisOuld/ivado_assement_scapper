@@ -1,0 +1,43 @@
+museum_name,city,annual_visitors,city_norm,country_norm,population,Latitude,Longitude,country,match_type,city_population
+Louvre,Paris,9000000,paris,,21106940.0,,,fr,city_only,21106940.0
+National Museum of China,Beijing,6956800,beijing,,,,,,unmatched,
+Vatican Museums,"Vatican City, Rome",6825436,vatican city rome,,,,,,unmatched,
+Shenzhen Museum,Shenzhen,6805000,shenzhen,,10025920.0,,,cn,city_only,10025920.0
+British Museum,London,6479952,london,,74212280.0,,,gb,city_only,74212280.0
+China Science and Technology Museum,Beijing,6421000,beijing,,,,,,unmatched,
+"Natural History Museum, South Kensington",London,6301972,london,,74212280.0,,,gb,city_only,74212280.0
+Metropolitan Museum of Art,New York City,5700000,new york city,,,,,,unmatched,
+Nanjing Museum,Nanjing,5680000,nanjing,,30870100.0,,,cn,city_only,30870100.0
+American Museum of Natural History,New York City,5400000,new york city,,,,,,unmatched,
+Tate Modern,London,4603025,london,,74212280.0,,,gb,city_only,74212280.0
+Hubei Provincial Museum,Wuhan,4356943,wuhan,,41842060.0,,,cn,city_only,41842060.0
+Shanghai Museum East,Shanghai,4230000,shanghai,,146085120.0,,,cn,city_only,146085120.0
+National Gallery of Art,"Washington, D.C.",3936543,washington dc,,,,,,unmatched,
+National Museum of Korea,Seoul,3780000,seoul,,103234480.0,,,kr,city_only,103234480.0
+Musée d'Orsay,Paris,3751000,paris,,21106940.0,,,fr,city_only,21106940.0
+National Museum of Anthropology,Mexico City,3700000,mexico city,,,,,,unmatched,
+State Russian Museum,Saint Petersburg,3611899,saint petersburg,,40397510.0,,,ru,city_only,40397510.0
+State Hermitage Museum,Saint Petersburg,3563590,saint petersburg,,40397510.0,,,ru,city_only,40397510.0
+Victoria and Albert Museum,"London, South Kensington",3525700,london south kensington,,,,,,unmatched,
+Prado Museum,Madrid,3457057,madrid,,31026440.0,,,es,city_only,31026440.0
+Centre Pompidou,Paris,3204369,paris,,21106940.0,,,fr,city_only,21106940.0
+National Gallery,London,3203451,london,,74212280.0,,,gb,city_only,74212280.0
+Musée National d'Histoire Naturelle,Paris,3200000,paris,,21106940.0,,,fr,city_only,21106940.0
+National Air and Space Museum[a],"Washington, D.C.",3100000,washington dc,,,,,,unmatched,
+Mevlana Museum,Konya,3048000,konya,,8760040.0,,,tr,city_only,8760040.0
+National Museum of Natural History,"Washington, D.C.",3000000,washington dc,,,,,,unmatched,
+Galleria degli Uffizi,Florence,2908828,florence,,3471940.0,,,it,city_only,3471940.0
+National Museum of Natural Science,Taichung,2854455,taichung,,10835820.0,,,tw,city_only,10835820.0
+London Science Museum,London,2827242,london,,74212280.0,,,gb,city_only,74212280.0
+Museum of Modern Art,New York City,2657377,new york city,,,,,,unmatched,
+National Museum of Nature and Science,Tokyo,2634997,tokyo,,314804980.0,,,jp,city_only,314804980.0
+M+,Hong Kong,2610000,hong kong,,,,,,unmatched,
+State Tretyakov Gallery,Moscow,2524450,moscow,,103812880.0,,,ru,city_only,103812880.0
+Rijksmuseum,Amsterdam,2500000,amsterdam,,7458110.0,,,nl,city_only,7458110.0
+Tokyo National Museum,Tokyo,2460000,tokyo,,314804980.0,,,jp,city_only,314804980.0
+Art Gallery of NSW,Sydney,2369339,sydney,,43945850.0,,,au,city_only,43945850.0
+National Museum of Scotland,Edinburgh,2314974,edinburgh,,4357940.0,,,gb,city_only,4357940.0
+Royal Museums Greenwich,London,2255753,london,,74212280.0,,,gb,city_only,74212280.0
+Galleria dell'Accademia,Florence,2189103,florence,,3471940.0,,,it,city_only,3471940.0
+Smithsonian Museum of American History,"Washington, D.C.",2100000,washington dc,,,,,,unmatched,
+National Gallery Singapore,Singapore,2040481,singapore,,35478090.0,,,sg,city_only,35478090.0
